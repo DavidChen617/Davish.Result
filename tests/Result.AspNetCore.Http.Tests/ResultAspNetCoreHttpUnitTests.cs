@@ -2,9 +2,10 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Davish.Result.AspNetCore.Http.UnitTests;
+namespace Davish.Result.AspNetCore.Http.Tests;
 
-public class ResultToMinimalResultExtensionTests
+[Collection(ResultHttpOptionsCollection.Name)]
+public class ResultAspNetCoreHttpUnitTests
 {
     private sealed class TestErrorType(string name) : ErrorType(name);
 
