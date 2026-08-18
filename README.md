@@ -8,13 +8,15 @@ short-circuiting pipeline with `Then` (sync and async).
 - **Structured errors** — `Error` carries a code, description, category, and per-field messages.
 - **Extensible categories** — a set of built-in `ErrorType` values, extend it with your own.
 - **Fluent composition** — chain steps with `Then` / `ThenAsync`; a failure skips the rest.
-- **Broad reach** — targets `netstandard2.0` and `net10.0`.
+- **Minimal API integration** — convert a `Result` straight into an `IResult` with a configurable error-to-status-code mapping.
+- **Broad reach** — `Davish.Result`/`Davish.Result.Extension` target `netstandard2.0` and `net10.0`.
 
 ## Installation
 
 ```bash
 dotnet add package Davish.Result
-dotnet add package Davish.Result.Extension   # Then / ThenAsync composition
+dotnet add package Davish.Result.Extension          # Then / ThenAsync composition
+dotnet add package Davish.Result.AspNetCore.Http    # Result -> Minimal API IResult (net10.0)
 ```
 
 Everything lives in a single namespace:
@@ -56,10 +58,14 @@ Result<int> failed = Result.Failure<int>(new Error("Parse.Failed", "Not a number
 
 ```csharp
 if (result.IsSuccess)
-    Use(result.Value);           // Result<T>.Value throws if the result is a failure
+    Use(result.Value);           // Result<T>.Value throws ResultValueUnavailableException if the result is a failure
 else
     Log(result.Error.Description);
 ```
+
+> [!NOTE]
+> `ResultValueUnavailableException` and `InvalidResultStateException` (thrown by `Result.Failure(Error.None)`
+> and similar invalid combinations) both derive from `ResultException`, so `catch (ResultException)` handles either.
 
 ### Implicit conversions
 
@@ -152,3 +158,58 @@ public sealed class OrderErrorType : ErrorType
 
 var error = new Error("Order.OutOfStock", "Item is out of stock", OrderErrorType.OutOfStock);
 ```
+
+## ASP.NET Core / Minimal APIs
+
+`Davish.Result.AspNetCore.Http` converts a `Result`/`Result<T>` straight into a Minimal API `IResult`:
+a success maps to the corresponding 2xx, a failure maps to a `ProblemDetails` (or a validation
+problem, if `Error.Fields` is populated).
+
+```csharp
+app.MapGet("/bookings/{id}", (int id, BookingService service) =>
+    service.Find(id).ToOk());                              // 200 OK, or a problem result
+
+app.MapPost("/bookings", (CreateBooking request, BookingService service) =>
+    service.Create(request).ToCreated("GetBooking", b => new { id = b.Id }));  // 201 Created
+
+app.MapDelete("/bookings/{id}", (int id, BookingService service) =>
+    service.Delete(id).ToNoContent());                     // 204 No Content, or a problem result
+```
+
+| Method | Success | Failure |
+| --- | --- | --- |
+| `ToOk()` | `200 OK` | problem result |
+| `ToNoContent()` | `204 No Content` | problem result |
+| `ToCreated(routeName, routeValues)` | `201 Created` | problem result |
+| `ToAccepted(uri)` | `202 Accepted` | problem result |
+| `ToProblemDetail()` | — | problem, or validation problem if `Error.Fields` is populated |
+| `ToValidationProblemDetail()` | — | validation problem from `Error.Fields` |
+
+### Error type → status code mapping
+
+Failures map to a status code by `Error.Type`. Built-in categories map as you'd expect
+(`Validation`/`NullValue`/`BadRequest` → 400, `NotFound` → 404, `Unauthorized` → 401,
+`Forbidden` → 403, `Conflict` → 409, `ServiceUnavailable` → 503, `Unexpected` and anything
+unregistered → 500). Register your own categories once at startup:
+
+```csharp
+builder.Services.AddCustomResultErrorTypeMap(v =>
+{
+    // v.UseDefault = false;   // opt out of the built-in mappings above
+
+    v.CustomMap = new Dictionary<ErrorTypeBase, int>
+    {
+        [OrderErrorType.OutOfStock] = StatusCodes.Status409Conflict,
+        [OrderErrorType.PaymentDeclined] = StatusCodes.Status402PaymentRequired,
+    };
+});
+```
+
+> [!NOTE]
+> Error types are matched by reference, not by `Name` — two distinct `ErrorType` instances that
+> happen to share the same name are treated as different categories. Reuse the same
+> `static readonly` instance both when constructing the `Error` and when mapping it here.
+
+> [!IMPORTANT]
+> Configure this once at startup, before the app serves any requests. The mapping locks itself
+> the first time a status code is resolved — reconfiguring afterward throws `ResultHttpOptionsLockedException`.
