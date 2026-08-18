@@ -1,9 +1,11 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Result.AspNetCore.Http/Result.AspNetCore.Http.csproj" />
     <Project Path="src/Result.Extension/Result.Extension.csproj" />
     <Project Path="src/Result/Result.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Result.AspNetCore.Http.Tests/Result.AspNetCore.Http.Tests.csproj" />
     <Project Path="tests/UnitTests/UnitTests.csproj" />
   </Folder>
 </Solution>

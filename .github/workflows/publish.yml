@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    tags: [ 'v*' ]
+    branches: [ main ]
 
 jobs:
   build:
@@ -27,12 +27,8 @@ jobs:
       - name: Test
         run: dotnet test -c Release
 
-      - name: Set version from tag
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: echo "PKG_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-
       - name: Pack
-        run: dotnet pack -c Release -o out ${PKG_VERSION:+-p:Version=$PKG_VERSION}
+        run: dotnet pack -c Release -o out
 
       - name: NuGet login (OIDC)
         uses: NuGet/login@v1
