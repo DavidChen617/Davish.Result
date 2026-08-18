@@ -27,7 +27,22 @@ public class ResultTests
     [Fact]
     public void GivenNoneError_WhenFailure_ThenThrows()
     {
-        Assert.Throws<InvalidOperationException>(() => Result.Failure(Error.None));
+        Assert.Throws<InvalidResultStateException>(() => Result.Failure(Error.None));
+    }
+
+    [Fact]
+    public void GivenNoneError_WhenFailure_ThenExceptionCarriesTheAttemptedState()
+    {
+        var exception = Assert.Throws<InvalidResultStateException>(() => Result.Failure(Error.None));
+
+        Assert.False(exception.IsSuccess);
+        Assert.Equal(Error.None, exception.Error);
+    }
+
+    [Fact]
+    public void GivenNoneError_WhenFailure_ThenThrowsIsCatchableAsResultException()
+    {
+        Assert.ThrowsAny<ResultException>(() => Result.Failure(Error.None));
     }
 
     [Fact]
@@ -56,7 +71,26 @@ public class ResultTests
         var result = Result.Failure<int>(new Error("E", "boom"));
 
         Assert.False(result.IsSuccess);
-        Assert.Throws<InvalidOperationException>(() => result.Value);
+        Assert.Throws<ResultValueUnavailableException>(() => result.Value);
+    }
+
+    [Fact]
+    public void GivenFailure_WhenReadingValue_ThenExceptionCarriesTheError()
+    {
+        var error = new Error("E", "boom");
+        var result = Result.Failure<int>(error);
+
+        var exception = Assert.Throws<ResultValueUnavailableException>(() => result.Value);
+
+        Assert.Equal(error, exception.Error);
+    }
+
+    [Fact]
+    public void GivenFailure_WhenReadingValue_ThenThrowsIsCatchableAsResultException()
+    {
+        var result = Result.Failure<int>(new Error("E", "boom"));
+
+        Assert.ThrowsAny<ResultException>(() => result.Value);
     }
 
     [Fact]

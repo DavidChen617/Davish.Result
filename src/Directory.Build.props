@@ -9,7 +9,6 @@
 
   <PropertyGroup>
     <PackageId>Davish.$(MSBuildProjectName)</PackageId>
-    <Version>1.0.0-preview.1</Version>
     <Authors>David Chen</Authors>
     <Copyright>Copyright (c) 2026 David Chen</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
