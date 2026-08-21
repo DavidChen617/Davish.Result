@@ -12,6 +12,15 @@ public static class ResultHttpOptionsServiceCollectionExtensions
     extension(IServiceCollection services)
     {
         /// <summary>
+        /// Configures the <see cref="ErrorTypeBase"/> to HTTP status code mapping using the built-in defaults.
+        /// </summary>
+        public IServiceCollection AddCustomResultErrorTypeMap()
+        {
+            services.AddCustomResultErrorTypeMap(_ => { });
+            return services;
+        }
+
+        /// <summary>
         /// Configures the <see cref="ErrorTypeBase"/> to HTTP status code mapping.
         /// </summary>
         /// <remarks>
