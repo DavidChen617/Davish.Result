@@ -141,6 +141,14 @@ public class ResultAspNetCoreHttpUnitTests
     }
 
     [Fact]
+    public void GivenBuiltInErrorType_WhenToStatusCode_ThenReturnsTheMappedStatusCode()
+    {
+        var statusCode = ErrorType.NotFound.ToStatusCode();
+
+        Assert.Equal(StatusCodes.Status404NotFound, statusCode);
+    }
+
+    [Fact]
     public void GivenFailedResultWithUnmappedErrorType_WhenToProblemDetail_ThenDefaultsToInternalServerError()
     {
         var result = Result.Failure(UnmappedError);
@@ -205,6 +213,28 @@ public class ResultAspNetCoreHttpUnitTests
 
             var problem = Assert.IsType<ProblemHttpResult>(result.ToProblemDetail());
             Assert.Equal(StatusCodes.Status429TooManyRequests, problem.ProblemDetails.Status);
+        }
+        finally
+        {
+            ResultHttpOptions.ResetForTesting();
+        }
+    }
+
+    [Fact]
+    public void GivenAddCustomResultErrorTypeMapWithoutConfiguration_WhenToProblemDetail_ThenBuiltInDefaultsApply()
+    {
+        ResultHttpOptions.ResetForTesting();
+
+        try
+        {
+            var services = new ServiceCollection();
+
+            var returned = services.AddCustomResultErrorTypeMap();
+
+            Assert.Same(services, returned);
+
+            var problem = Assert.IsType<ProblemHttpResult>(Result.Failure(NotFoundError).ToProblemDetail());
+            Assert.Equal(StatusCodes.Status404NotFound, problem.ProblemDetails.Status);
         }
         finally
         {

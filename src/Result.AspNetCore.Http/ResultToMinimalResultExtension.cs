@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Http;
-using static Davish.Result.ResultHttpOptions;
 using static Microsoft.AspNetCore.Http.TypedResults;
 
 namespace Davish.Result;
@@ -46,7 +45,7 @@ public static class ResultToMinimalResultExtension
             return Problem(
                 title: error.Code,
                 detail: error.Description,
-                statusCode: ResolveStatusCode(error.Type)
+                statusCode: error.Type.ToStatusCode()
             );
         }
 
