@@ -135,7 +135,7 @@ public class ResultTests
     {
         var notFound = ErrorType.NotFound;
 
-        Assert.Same(notFound, ErrorType.NotFound);
+        Assert.Equal(notFound, ErrorType.NotFound);
         Assert.True(notFound == ErrorType.NotFound);
     }
 
@@ -144,7 +144,7 @@ public class ResultTests
     {
         var error = new Error("Some.Code", "Some description");
 
-        Assert.Same(ErrorType.Validation, error.Type);
+        Assert.Equal(ErrorType.Validation, error.Type);
     }
 
     [Fact]
@@ -152,6 +152,6 @@ public class ResultTests
     {
         var error = new Error("User.NotFound", "User was not found", ErrorType.NotFound);
 
-        Assert.Same(ErrorType.NotFound, error.Type);
+        Assert.Equal(ErrorType.NotFound, error.Type);
     }
 }

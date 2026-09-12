@@ -6,19 +6,18 @@ namespace Davish.Result;
 
 /// <summary>
 /// Configures the HTTP status code that <see cref="ResultToMinimalResultExtension"/> maps each <see cref="ErrorType"/> to.
-/// Not directly accessible outside this assembly — configure it via
-/// <c>IServiceCollection.AddCustomResultErrorTypeMap(...)</c>.
+/// This is process-wide static state, applied immediately when <see cref="Configure"/> runs rather than resolved
+/// per-request from a DI container — call it once, e.g. from <c>Program.cs</c>, the same way you would configure
+/// <c>JsonSerializerOptions</c> or Dapper's <c>SqlMapper.Settings</c>.
 /// </summary>
 /// <remarks>
-/// Error types are matched by reference, not by <see cref="ErrorTypeBase.Name"/>: two distinct
-/// <see cref="ErrorTypeBase"/> instances that happen to share the same <c>Name</c> (a "lookalike") are treated
-/// as different categories and must be registered separately. Define each category once as a
-/// <see langword="static readonly"/> field (as <see cref="ErrorType"/> itself does) and reuse that same instance
-/// both when constructing an <see cref="Error"/> and when mapping it here.
+/// <see cref="ErrorType"/> is a <see langword="record struct"/>, so error types are matched by
+/// <see cref="ErrorType.Value"/>, not by reference: two <see cref="ErrorType"/> values that share the same
+/// <c>Name</c> are treated as the same category, even if constructed separately.
 /// </remarks>
-internal static class ResultHttpOptions
+public static class ResultHttpOptions
 {
-    private static readonly IReadOnlyDictionary<ErrorTypeBase, int> DefaultStatusCodesByErrorType = new Dictionary<ErrorTypeBase, int>
+    private static readonly IReadOnlyDictionary<ErrorType, int> DefaultStatusCodesByErrorType = new Dictionary<ErrorType, int>
     {
         [Validation] = Status400BadRequest,
         [NullValue] = Status400BadRequest,
@@ -31,7 +30,7 @@ internal static class ResultHttpOptions
         [ServiceUnavailable] = Status503ServiceUnavailable
     };
 
-    private static ConcurrentDictionary<ErrorTypeBase, int> s_statusCodesByErrorType = new(DefaultStatusCodesByErrorType);
+    private static ConcurrentDictionary<ErrorType, int> s_statusCodesByErrorType = new(DefaultStatusCodesByErrorType);
 
     /// <summary>
     /// Whether <see cref="ResolveStatusCode"/> has resolved at least one status code. Once <see langword="true"/>,
@@ -48,7 +47,7 @@ internal static class ResultHttpOptions
     /// <exception cref="ResultHttpOptionsLockedException">
     /// Thrown when this is called after <see cref="ResolveStatusCode"/> has already resolved at least once.
     /// </exception>
-    internal static void Configure(Action<ResultHttpOptionsBuilder> configure)
+    public static void Configure(Action<ResultHttpOptionsBuilder> configure)
     {
         if (s_locked)
             throw new ResultHttpOptionsLockedException();
@@ -58,7 +57,7 @@ internal static class ResultHttpOptions
         var builder = new ResultHttpOptionsBuilder();
         configure(builder);
 
-        var map = new ConcurrentDictionary<ErrorTypeBase, int>();
+        var map = new ConcurrentDictionary<ErrorType, int>();
 
         if (builder.UseDefault)
             foreach (var (errorType, statusCode) in DefaultStatusCodesByErrorType)
@@ -77,7 +76,7 @@ internal static class ResultHttpOptions
     /// Freezes the configuration: <see cref="Configure"/> throws for any call after this one.
     /// </summary>
     /// <param name="errorType">The error category to resolve.</param>
-    internal static int ResolveStatusCode(ErrorTypeBase errorType)
+    internal static int ResolveStatusCode(ErrorType errorType)
     {
         s_locked = true;
         return s_statusCodesByErrorType.GetValueOrDefault(errorType, Status500InternalServerError);
@@ -90,20 +89,20 @@ internal static class ResultHttpOptions
     internal static void ResetForTesting()
     {
         s_locked = false;
-        s_statusCodesByErrorType = new ConcurrentDictionary<ErrorTypeBase, int>(DefaultStatusCodesByErrorType);
+        s_statusCodesByErrorType = new ConcurrentDictionary<ErrorType, int>(DefaultStatusCodesByErrorType);
     }
 }
 
 /// <summary>
 /// Builds the configuration applied by <see cref="ResultHttpOptions.Configure"/>. <see cref="CustomMap"/> is
 /// applied after the built-in defaults (if <see cref="UseDefault"/>), overriding any that share the same
-/// <see cref="ErrorTypeBase"/>.
+/// <see cref="ErrorType"/>.
 /// </summary>
 public sealed class ResultHttpOptionsBuilder
 {
     /// <summary>Whether the built-in <see cref="ErrorType"/> mappings are seeded before <see cref="CustomMap"/> is applied. Defaults to <see langword="true"/>.</summary>
     public bool UseDefault { get; set; } = true;
 
-    /// <summary>An entire replacement map of <see cref="ErrorTypeBase"/> to HTTP status code, applied after the built-in defaults (if any).</summary>
-    public IReadOnlyDictionary<ErrorTypeBase, int>? CustomMap { get; set; }
+    /// <summary>An entire replacement map of <see cref="ErrorType"/> to HTTP status code, applied after the built-in defaults (if any).</summary>
+    public IReadOnlyDictionary<ErrorType, int>? CustomMap { get; set; }
 }

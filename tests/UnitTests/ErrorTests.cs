@@ -89,33 +89,22 @@ public class ErrorTests
         Assert.Equal(["Required"], error.Fields["Name"]);
     }
 
-    private sealed class CustomErrorType : ErrorType
+    private static class CustomErrorType
     {
-        public static readonly CustomErrorType Conflict = new(nameof(Conflict));
-        public static readonly CustomErrorType NotFoundLookalike = new("NotFound");
-
-        private CustomErrorType(string name) : base(name)
-        {
-        }
+        public static readonly ErrorType Conflict = new(nameof(Conflict));
+        public static readonly ErrorType NotFoundLookalike = new("NotFound");
     }
 
     [Fact]
-    public void GivenBuiltInErrorType_WhenReadingName_ThenComesFromBase()
+    public void GivenBuiltInErrorType_WhenReadingName_ThenReturnsIt()
     {
-        Assert.Equal("NotFound", ErrorType.NotFound.Name);
+        Assert.Equal("NotFound", ErrorType.NotFound.Value);
     }
 
     [Fact]
-    public void GivenBuiltInErrorType_WhenChecked_ThenIsAssignableToBase()
+    public void GivenCustomErrorType_WhenCreated_ThenHasTheGivenName()
     {
-        Assert.IsAssignableFrom<ErrorTypeBase>(ErrorType.NotFound);
-    }
-
-    [Fact]
-    public void GivenCustomErrorType_WhenCreated_ThenInheritsNameFromBase()
-    {
-        Assert.Equal("Conflict", CustomErrorType.Conflict.Name);
-        Assert.IsAssignableFrom<ErrorType>(CustomErrorType.Conflict);
+        Assert.Equal("Conflict", CustomErrorType.Conflict.Value);
     }
 
     [Fact]
@@ -123,13 +112,14 @@ public class ErrorTests
     {
         var error = new Error("Some.Code", "Some description", CustomErrorType.Conflict);
 
-        Assert.Same(CustomErrorType.Conflict, error.Type);
+        Assert.Equal(CustomErrorType.Conflict, error.Type);
     }
 
     [Fact]
-    public void GivenCustomErrorTypeWithBuiltInName_WhenCompared_ThenNotEqualByReference()
+    public void GivenCustomErrorTypeWithBuiltInName_WhenCompared_ThenEqualByValue()
     {
-        Assert.NotSame(ErrorType.NotFound, CustomErrorType.NotFoundLookalike);
-        Assert.Equal("NotFound", CustomErrorType.NotFoundLookalike.Name);
+        // ErrorType is a record struct: two values with the same Name are the same category,
+        // regardless of which static field they came from.
+        Assert.Equal(ErrorType.NotFound, CustomErrorType.NotFoundLookalike);
     }
 }

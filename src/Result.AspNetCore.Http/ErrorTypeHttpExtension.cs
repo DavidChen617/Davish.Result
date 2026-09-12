@@ -6,10 +6,10 @@ namespace Davish.Result;
 /// </summary>
 public static class ErrorTypeHttpExtension
 {
-    extension(ErrorTypeBase errorType)
+    extension(ErrorType errorType)
     {
         /// <summary>
-        /// Resolves the HTTP status code configured for this error type via <c>IServiceCollection.AddCustomResultErrorTypeMap</c>,
+        /// Resolves the HTTP status code configured for this error type via <see cref="ResultHttpOptions.Configure"/>,
         /// or <see cref="Microsoft.AspNetCore.Http.StatusCodes.Status500InternalServerError"/> if none was registered.
         /// </summary>
         public int ToStatusCode() => ResultHttpOptions.ResolveStatusCode(errorType);

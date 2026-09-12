@@ -1,17 +1,14 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Davish.Result.AspNetCore.Http.Tests;
 
 [Collection(ResultHttpOptionsCollection.Name)]
 public class ResultAspNetCoreHttpUnitTests
 {
-    private sealed class TestErrorType(string name) : ErrorType(name);
-
     private static readonly Error NotFoundError = new("Booking.NotFound", "Booking was not found", ErrorType.NotFound);
     private static readonly Error UnexpectedError = new("Booking.Unexpected", "Something went wrong", ErrorType.Unexpected);
-    private static readonly Error UnmappedError = new("Booking.Unmapped", "No mapping for this type", new TestErrorType("SomethingElse"));
+    private static readonly Error UnmappedError = new("Booking.Unmapped", "No mapping for this type", new ErrorType("SomethingElse"));
 
     private static Error ValidationErrorWithFields()
     {
@@ -160,26 +157,28 @@ public class ResultAspNetCoreHttpUnitTests
     }
 
     [Fact]
-    public void GivenErrorTypeThatIsALookalikeOfABuiltInName_WhenToProblemDetail_ThenDoesNotCollideWithTheBuiltInMapping()
+    public void GivenErrorTypeConstructedSeparatelyWithABuiltInName_WhenToProblemDetail_ThenMapsAsTheSameBuiltInCategory()
     {
-        var notFoundLookalike = new TestErrorType(ErrorType.NotFound.Name);
-        var result = Result.Failure(new Error("Booking.Lookalike", "Looks like NotFound but isn't", notFoundLookalike));
+        // ErrorType is a record struct: a value built from the same Name is the same category by value,
+        // even if it wasn't referenced via the ErrorType.NotFound static field.
+        var notFoundByValue = new ErrorType(ErrorType.NotFound.Value);
+        var result = Result.Failure(new Error("Booking.Lookalike", "Same name as NotFound", notFoundByValue));
 
         var httpResult = result.ToProblemDetail();
 
         var problem = Assert.IsType<ProblemHttpResult>(httpResult);
-        Assert.Equal(StatusCodes.Status500InternalServerError, problem.ProblemDetails.Status);
+        Assert.Equal(StatusCodes.Status404NotFound, problem.ProblemDetails.Status);
     }
 
     [Fact]
     public void GivenConfigureWithCustomBuilder_WhenToProblemDetail_ThenBuiltInDefaultsAndCustomEntryBothApply()
     {
-        var rateLimited = new TestErrorType("RateLimited.ConfigureBuilder");
+        var rateLimited = new ErrorType("RateLimited.ConfigureBuilder");
         ResultHttpOptions.ResetForTesting();
         try
         {
-            new ServiceCollection().AddCustomResultErrorTypeMap(v =>
-                v.CustomMap = new Dictionary<ErrorTypeBase, int> { [rateLimited] = StatusCodes.Status429TooManyRequests });
+            ResultHttpOptions.Configure(v =>
+                v.CustomMap = new Dictionary<ErrorType, int> { [rateLimited] = StatusCodes.Status429TooManyRequests });
 
             var custom = Result.Failure(new Error("Booking.RateLimited", "Too many requests", rateLimited));
             var builtIn = Result.Failure(NotFoundError);
@@ -197,17 +196,15 @@ public class ResultAspNetCoreHttpUnitTests
     }
 
     [Fact]
-    public void GivenAddCustomResultErrorTypeMapViaServiceCollection_WhenToProblemDetail_ThenUsesConfiguredStatusCode()
+    public void GivenConfigureWithCustomMap_WhenToProblemDetail_ThenUsesConfiguredStatusCode()
     {
-        var rateLimited = new TestErrorType("RateLimited.ServiceCollection");
+        var rateLimited = new ErrorType("RateLimited.DirectConfigure");
         ResultHttpOptions.ResetForTesting();
 
         try
         {
-            var services = new ServiceCollection();
-
-            services.AddCustomResultErrorTypeMap(v =>
-                v.CustomMap = new Dictionary<ErrorTypeBase, int> { [rateLimited] = StatusCodes.Status429TooManyRequests });
+            ResultHttpOptions.Configure(v =>
+                v.CustomMap = new Dictionary<ErrorType, int> { [rateLimited] = StatusCodes.Status429TooManyRequests });
 
             var result = Result.Failure(new Error("Booking.RateLimited", "Too many requests", rateLimited));
 
@@ -221,18 +218,12 @@ public class ResultAspNetCoreHttpUnitTests
     }
 
     [Fact]
-    public void GivenAddCustomResultErrorTypeMapWithoutConfiguration_WhenToProblemDetail_ThenBuiltInDefaultsApply()
+    public void GivenNoConfigureCall_WhenToProblemDetail_ThenBuiltInDefaultsApply()
     {
         ResultHttpOptions.ResetForTesting();
 
         try
         {
-            var services = new ServiceCollection();
-
-            var returned = services.AddCustomResultErrorTypeMap();
-
-            Assert.Same(services, returned);
-
             var problem = Assert.IsType<ProblemHttpResult>(Result.Failure(NotFoundError).ToProblemDetail());
             Assert.Equal(StatusCodes.Status404NotFound, problem.ProblemDetails.Status);
         }
@@ -245,14 +236,14 @@ public class ResultAspNetCoreHttpUnitTests
     [Fact]
     public void GivenConfigureWithUseDefaultFalseAndCustomMap_WhenToProblemDetail_ThenOnlyCustomMapApplies()
     {
-        var rateLimited = new TestErrorType("RateLimited.CustomMap");
+        var rateLimited = new ErrorType("RateLimited.CustomMap");
         ResultHttpOptions.ResetForTesting();
         try
         {
-            new ServiceCollection().AddCustomResultErrorTypeMap(v =>
+            ResultHttpOptions.Configure(v =>
             {
                 v.UseDefault = false;
-                v.CustomMap = new Dictionary<ErrorTypeBase, int> { [rateLimited] = StatusCodes.Status429TooManyRequests };
+                v.CustomMap = new Dictionary<ErrorType, int> { [rateLimited] = StatusCodes.Status429TooManyRequests };
             });
 
             var custom = Result.Failure(new Error("Booking.RateLimited", "Too many requests", rateLimited));
@@ -271,7 +262,7 @@ public class ResultAspNetCoreHttpUnitTests
     }
 
     [Fact]
-    public void GivenConfigureCalledAfterResolveStatusCodeHasRun_WhenAddCustomResultErrorTypeMap_ThenThrows()
+    public void GivenConfigureCalledAfterResolveStatusCodeHasRun_WhenConfigure_ThenThrows()
     {
         ResultHttpOptions.ResetForTesting();
         try
@@ -279,7 +270,7 @@ public class ResultAspNetCoreHttpUnitTests
             Result.Failure(NotFoundError).ToProblemDetail();
 
             Assert.Throws<ResultHttpOptionsLockedException>(() =>
-                new ServiceCollection().AddCustomResultErrorTypeMap(v => { }));
+                ResultHttpOptions.Configure(v => { }));
         }
         finally
         {
@@ -288,7 +279,7 @@ public class ResultAspNetCoreHttpUnitTests
     }
 
     [Fact]
-    public void GivenConfigureCalledAfterResolveStatusCodeHasRun_WhenAddCustomResultErrorTypeMap_ThenThrowIsCatchableAsResultException()
+    public void GivenConfigureCalledAfterResolveStatusCodeHasRun_WhenConfigure_ThenThrowIsCatchableAsResultException()
     {
         ResultHttpOptions.ResetForTesting();
         try
@@ -296,7 +287,7 @@ public class ResultAspNetCoreHttpUnitTests
             Result.Failure(NotFoundError).ToProblemDetail();
 
             Assert.ThrowsAny<ResultException>(() =>
-                new ServiceCollection().AddCustomResultErrorTypeMap(v => { }));
+                ResultHttpOptions.Configure(v => { }));
         }
         finally
         {
