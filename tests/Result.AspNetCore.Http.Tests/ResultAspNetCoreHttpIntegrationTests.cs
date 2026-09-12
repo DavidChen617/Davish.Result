@@ -19,6 +19,7 @@ namespace Davish.Result.AspNetCore.Http.Tests;
 public sealed class ResultAspNetCoreHttpIntegrationTests : IAsyncLifetime
 {
     private static readonly Error NotFoundError = new("Booking.NotFound", "Booking was not found", ErrorType.NotFound);
+    private static readonly ErrorType RateLimited = new(nameof(RateLimited));
 
     private IHost _host = null!;
     private HttpClient _client = null!;
@@ -26,6 +27,11 @@ public sealed class ResultAspNetCoreHttpIntegrationTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         ResultHttpOptions.ResetForTesting();
+        ResultHttpOptions.Configure(v =>
+            v.CustomMap = new Dictionary<ErrorType, int>
+            {
+                [RateLimited] = StatusCodes.Status429TooManyRequests
+            });
 
         _host = await new HostBuilder()
             .ConfigureWebHost(webHost =>
@@ -35,11 +41,6 @@ public sealed class ResultAspNetCoreHttpIntegrationTests : IAsyncLifetime
                 webHost.ConfigureServices(services =>
                 {
                     services.AddRouting();
-                    services.AddCustomResultErrorTypeMap(v =>
-                        v.CustomMap = new Dictionary<ErrorTypeBase, int>
-                        {
-                            [RateLimitedErrorType.Instance] = StatusCodes.Status429TooManyRequests
-                        });
                 });
 
                 webHost.Configure(app =>
@@ -59,7 +60,7 @@ public sealed class ResultAspNetCoreHttpIntegrationTests : IAsyncLifetime
                             Find(id).ToAccepted($"/bookings/{id}/status"));
 
                         endpoints.MapGet("/bookings/rate-limited", () =>
-                            Result.Failure<Booking>(new Error("Booking.RateLimited", "Slow down", RateLimitedErrorType.Instance)).ToOk());
+                            Result.Failure<Booking>(new Error("Booking.RateLimited", "Slow down", RateLimited)).ToOk());
                     });
                 });
             })
@@ -140,12 +141,4 @@ public sealed class ResultAspNetCoreHttpIntegrationTests : IAsyncLifetime
         id == 1 ? Result.Success() : Result.Failure(NotFoundError);
 
     private sealed record Booking(int Id);
-
-    private sealed class RateLimitedErrorType : ErrorType
-    {
-        public static readonly RateLimitedErrorType Instance = new();
-        private RateLimitedErrorType() : base(nameof(RateLimitedErrorType))
-        {
-        }
-    }
 }

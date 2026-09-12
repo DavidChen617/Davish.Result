@@ -129,7 +129,8 @@ Built-in categories:
 | `ServiceUnavailable` | Downstream service is unavailable |
 
 > [!NOTE]
-> `ErrorType` uses reference equality, so each declared category is a distinct singleton.
+> `ErrorType` is a `record struct` wrapping its name, so it uses value equality — two `ErrorType`
+> values with the same name are the same category, however they were constructed.
 
 ### Field-level (validation) errors
 
@@ -145,15 +146,14 @@ var error = new Error("Validation", "One or more fields are invalid")
 
 ### Custom error types
 
-Extend `ErrorType` to define application-specific categories, using the same static-factory pattern:
+Declare application-specific categories as `static readonly ErrorType` values, the same way the
+built-in ones are declared:
 
 ```csharp
-public sealed class OrderErrorType : ErrorType
+public static class OrderErrorType
 {
-    public static readonly OrderErrorType OutOfStock = new(nameof(OutOfStock));
-    public static readonly OrderErrorType PaymentDeclined = new(nameof(PaymentDeclined));
-
-    private OrderErrorType(string name) : base(name) { }
+    public static readonly ErrorType OutOfStock = new(nameof(OutOfStock));
+    public static readonly ErrorType PaymentDeclined = new(nameof(PaymentDeclined));
 }
 
 var error = new Error("Order.OutOfStock", "Item is out of stock", OrderErrorType.OutOfStock);
@@ -193,11 +193,11 @@ Failures map to a status code by `Error.Type`. Built-in categories map as you'd 
 unregistered → 500). Register your own categories once at startup:
 
 ```csharp
-builder.Services.AddCustomResultErrorTypeMap(v =>
+Davish.Result.ResultHttpOptions.Configure(v =>
 {
     // v.UseDefault = false;   // opt out of the built-in mappings above
 
-    v.CustomMap = new Dictionary<ErrorTypeBase, int>
+    v.CustomMap = new Dictionary<ErrorType, int>
     {
         [OrderErrorType.OutOfStock] = StatusCodes.Status409Conflict,
         [OrderErrorType.PaymentDeclined] = StatusCodes.Status402PaymentRequired,
@@ -205,10 +205,10 @@ builder.Services.AddCustomResultErrorTypeMap(v =>
 });
 ```
 
-> [!NOTE]
-> Error types are matched by reference, not by `Name` — two distinct `ErrorType` instances that
-> happen to share the same name are treated as different categories. Reuse the same
-> `static readonly` instance both when constructing the `Error` and when mapping it here.
+This is process-wide static configuration, applied immediately rather than resolved from a DI
+container — the same idea as configuring `JsonSerializerOptions` or Dapper's `SqlMapper.Settings`.
+Since `ErrorType` uses value equality, `OrderErrorType.OutOfStock` and any other `ErrorType` you
+build with the same name map to the same entry.
 
 > [!IMPORTANT]
 > Configure this once at startup, before the app serves any requests. The mapping locks itself
