@@ -100,6 +100,13 @@ public class ErrorTests
         Assert.Equal(["Required"], error.Fields["Name"]);
     }
 
+    [Fact]
+    public void GivenNullFieldsDictionary_WhenConstructingError_ThenThrowsArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            new Error("V", "bad", (Dictionary<string, List<string>>)null!));
+    }
+
     private static class CustomErrorType
     {
         public static readonly ErrorType Conflict = new(nameof(Conflict));

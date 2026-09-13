@@ -49,8 +49,12 @@ public record Error
     /// <param name="code">The machine-readable error code.</param>
     /// <param name="description">The human-readable error description.</param>
     /// <param name="fields">The per-field error messages, keyed by field name. Copied defensively.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="fields"/> is <see langword="null"/>.</exception>
     public Error(string code, string description, Dictionary<string, List<string>> fields) : this(code, description)
     {
+        if (fields is null)
+            throw new ArgumentNullException(nameof(fields));
+
         var copy = new Dictionary<string, IReadOnlyList<string>>();
         foreach (var entry in fields)
             copy[entry.Key] = [.. entry.Value];
