@@ -10,13 +10,10 @@ public class ResultAspNetCoreHttpUnitTests
     private static readonly Error UnexpectedError = new("Booking.Unexpected", "Something went wrong", ErrorType.Unexpected);
     private static readonly Error UnmappedError = new("Booking.Unmapped", "No mapping for this type", new ErrorType("SomethingElse"));
 
-    private static Error ValidationErrorWithFields()
-    {
-        var error = new Error("Booking.Invalid", "Validation failed", ErrorType.Validation);
-        error.AddFieldError("Name", "Name is required");
-        error.AddFieldError("Date", "Date must be in the future");
-        return error;
-    }
+    private static Error ValidationErrorWithFields() =>
+        new Error("Booking.Invalid", "Validation failed", ErrorType.Validation)
+            .AddFieldError("Name", "Name is required")
+            .AddFieldError("Date", "Date must be in the future");
 
     private sealed record Booking(int Id);
 
