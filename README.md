@@ -144,6 +144,11 @@ var error = new Error("Validation", "One or more fields are invalid")
 // error.Fields["Password"] => ["Too short", "Must contain a digit"]
 ```
 
+> [!NOTE]
+> `AddFieldError` never modifies the `Error` it's called on — it returns a new `Error` with the
+> message added. This matters if you call it on a shared instance like `Error.NullValue`: the
+> shared singleton is unaffected, and you must use the returned value.
+
 ### Custom error types
 
 Declare application-specific categories as `static readonly ErrorType` values, the same way the

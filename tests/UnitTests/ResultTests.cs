@@ -31,6 +31,14 @@ public class ResultTests
     }
 
     [Fact]
+    public void GivenHandBuiltNoneTypedError_WhenFailure_ThenThrows()
+    {
+        var handCraftedNone = new Error(string.Empty, string.Empty, ErrorType.None);
+
+        Assert.Throws<InvalidResultStateException>(() => Result.Failure(handCraftedNone));
+    }
+
+    [Fact]
     public void GivenNoneError_WhenFailure_ThenExceptionCarriesTheAttemptedState()
     {
         var exception = Assert.Throws<InvalidResultStateException>(() => Result.Failure(Error.None));
