@@ -18,6 +18,19 @@ public record Error
     public ErrorType Type { get; } = ErrorType.Validation;
 
     /// <summary>
+    /// Gets the errors that caused this error, in the order they were added. Empty when this error has no
+    /// recorded cause. Use <see cref="CausedBy(Error)"/>/<see cref="CausedBy(IReadOnlyList{Error})"/> to derive
+    /// a new <see cref="Error"/> with additional causes; this instance is never modified in place.
+    /// </summary>
+    public IReadOnlyList<Error> Causes { get; private init; } = [];
+
+    /// <summary>
+    /// Gets the direct cause of this error, or <see langword="null"/> if there is none. When multiple causes
+    /// exist, this is the first one — mirrors <see cref="System.Exception.InnerException"/>.
+    /// </summary>
+    public Error? InnerError => Causes.Count > 0 ? Causes[0] : null;
+
+    /// <summary>
     /// Gets the per-field error messages, keyed by field name. Typically used for validation errors.
     /// Immutable: use <see cref="AddFieldError(string, string)"/>/<see cref="AddFieldError(string, ICollection{string})"/>
     /// to derive a new <see cref="Error"/> with additional messages; this instance is never modified in place.
@@ -102,6 +115,32 @@ public record Error
         return this with { Fields = fields };
     }
 
+    /// <summary>
+    /// Returns a new <see cref="Error"/> with a single cause added. This instance is left unchanged.
+    /// </summary>
+    /// <param name="cause">The error that caused this error.</param>
+    /// <returns>A new <see cref="Error"/> carrying the added cause.</returns>
+    public Error CausedBy(Error cause) => CausedBy([cause]);
+
+    /// <summary>
+    /// Returns a new <see cref="Error"/> with multiple causes added. This instance is left unchanged.
+    /// </summary>
+    /// <param name="causes">The errors that caused this error.</param>
+    /// <returns>A new <see cref="Error"/> carrying the added causes.</returns>
+    public Error CausedBy(IReadOnlyList<Error> causes) => this with { Causes = [.. Causes, .. causes] };
+
+    /// <summary>
+    /// Walks down the cause chain to find the root cause. Mirrors
+    /// <see cref="System.AggregateException.GetBaseException"/>: stops at a node with zero causes, or one with
+    /// more than one cause (an aggregation point).
+    /// </summary>
+    /// <returns>The root <see cref="Error"/>.</returns>
+    public Error GetRootCause() => Causes.Count switch
+    {
+        1 => Causes[0].GetRootCause(),
+        _ => this
+    };
+
     /// <inheritdoc/>
     public virtual bool Equals(Error? other) =>
         other is not null
@@ -109,7 +148,8 @@ public record Error
         && Code == other.Code
         && Description == other.Description
         && Type == other.Type
-        && FieldsEqual(Fields, other.Fields);
+        && FieldsEqual(Fields, other.Fields)
+        && Causes.SequenceEqual(other.Causes);
 
     /// <inheritdoc/>
     public override int GetHashCode()
@@ -129,6 +169,10 @@ public record Error
                 foreach (var message in entry.Value)
                     hash = hash * 31 + message.GetHashCode();
             }
+
+            foreach (var cause in Causes)
+                hash = hash * 31 + cause.GetHashCode();
+
 
             return hash;
         }
