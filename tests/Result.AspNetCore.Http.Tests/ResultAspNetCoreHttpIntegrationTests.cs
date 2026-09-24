@@ -21,6 +21,11 @@ public sealed class ResultAspNetCoreHttpIntegrationTests : IAsyncLifetime
     private static readonly Error NotFoundError = new("Booking.NotFound", "Booking was not found", ErrorType.NotFound);
     private static readonly ErrorType RateLimited = new(nameof(RateLimited));
 
+    private sealed class BookingLockedException(int id) : Exception
+    {
+        public int Id { get; } = id;
+    }
+
     private IHost _host = null!;
     private HttpClient _client = null!;
 
@@ -41,10 +46,18 @@ public sealed class ResultAspNetCoreHttpIntegrationTests : IAsyncLifetime
                 webHost.ConfigureServices(services =>
                 {
                     services.AddRouting();
+                    services.AddResultAspNetCore(o =>
+                    {
+                        o.MapExceptionToResult<BookingLockedException>((_, exception) =>
+                            Result.Failure(new Error("Booking.Locked", $"Booking {exception.Id} is locked", ErrorType.Conflict)));
+
+                        o.AddMinimalApiResult();
+                    });
                 });
 
                 webHost.Configure(app =>
                 {
+                    app.UseExceptionHandler();
                     app.UseRouting();
                     app.UseEndpoints(endpoints =>
                     {
@@ -61,6 +74,11 @@ public sealed class ResultAspNetCoreHttpIntegrationTests : IAsyncLifetime
 
                         endpoints.MapGet("/bookings/rate-limited", () =>
                             Result.Failure<Booking>(new Error("Booking.RateLimited", "Slow down", RateLimited)).ToOk());
+
+                        endpoints.MapGet("/bookings/{id:int}/locked", (int id) =>
+                        {
+                            throw new BookingLockedException(id);
+                        });
                     });
                 });
             })
@@ -130,6 +148,16 @@ public sealed class ResultAspNetCoreHttpIntegrationTests : IAsyncLifetime
         var response = await _client.GetAsync("/bookings/rate-limited");
 
         Assert.Equal((HttpStatusCode)StatusCodes.Status429TooManyRequests, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GivenEndpointThrowsMappedException_WhenGet_ThenProducesSameShapeAsADirectFailureResult()
+    {
+        var response = await _client.GetAsync("/bookings/1/locked");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Booking.Locked", body);
     }
 
     private static Result<Booking> Find(int id) =>
