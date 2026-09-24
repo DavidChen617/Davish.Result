@@ -30,6 +30,21 @@ public class Result<TValue> : Result where TValue : notnull
     }
 
     /// <summary>
+    /// Deconstructs this result into its success flag, value, and error. <paramref name="value"/> reads the
+    /// underlying field directly rather than <see cref="Value"/>, so it never throws on failure — it is
+    /// <see langword="default"/> when <paramref name="isSuccess"/> is <see langword="false"/>.
+    /// </summary>
+    /// <param name="isSuccess">Whether the operation succeeded.</param>
+    /// <param name="value">The produced value, or <see langword="default"/> on failure.</param>
+    /// <param name="error">The error. Equals <see cref="Error.None"/> when <paramref name="isSuccess"/> is <see langword="true"/>.</param>
+    public void Deconstruct(out bool isSuccess, out TValue? value, out Error error)
+    {
+        isSuccess = IsSuccess;
+        value = _value;
+        error = Error;
+    }
+
+    /// <summary>
     /// Implicitly converts a value into a result: a successful result when non-null,
     /// otherwise a failure with <see cref="Error.NullValue"/>.
     /// </summary>

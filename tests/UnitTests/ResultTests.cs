@@ -162,4 +162,111 @@ public class ResultTests
 
         Assert.Equal(ErrorType.NotFound, error.Type);
     }
+
+    [Fact]
+    public void GivenException_WhenFailure_ThenErrorIsExceptionalErrorWithExceptionMessageAsDescription()
+    {
+        var exception = new InvalidOperationException("boom");
+
+        var result = Result.Failure(exception);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExceptionalError>(result.Error);
+        Assert.Equal("boom", error.Description);
+        Assert.Same(exception, error.Exception);
+    }
+
+    [Fact]
+    public void GivenExceptionAndError_WhenFailure_ThenResultErrorIsTheGivenErrorNotExceptionalError()
+    {
+        var exception = new InvalidOperationException("internal detail");
+        var safeError = new Error("Order.LoadFailed", "Could not load the order");
+
+        var result = Result.Failure(exception, safeError);
+
+        Assert.False(result.IsSuccess);
+        Assert.IsNotType<ExceptionalError>(result.Error);
+        Assert.Equal("Order.LoadFailed", result.Error.Code);
+        Assert.Equal("Could not load the order", result.Error.Description);
+    }
+
+    [Fact]
+    public void GivenExceptionAndError_WhenFailure_ThenInnerErrorIsExceptionalErrorWrappingTheException()
+    {
+        var exception = new InvalidOperationException("internal detail");
+        var safeError = new Error("Order.LoadFailed", "Could not load the order");
+
+        var result = Result.Failure(exception, safeError);
+
+        var innerError = Assert.IsType<ExceptionalError>(result.Error.InnerError);
+        Assert.Same(exception, innerError.Exception);
+    }
+
+    [Fact]
+    public void GivenException_WhenFailureGeneric_ThenSameBehaviorAppliesToResultOfTValue()
+    {
+        var exception = new InvalidOperationException("boom");
+
+        var result = Result.Failure<int>(exception);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExceptionalError>(result.Error);
+        Assert.Same(exception, error.Exception);
+    }
+
+    [Fact]
+    public void GivenExceptionAndError_WhenFailureGeneric_ThenSameBehaviorAppliesToResultOfTValue()
+    {
+        var exception = new InvalidOperationException("internal detail");
+        var safeError = new Error("Order.LoadFailed", "Could not load the order");
+
+        var result = Result.Failure<int>(exception, safeError);
+
+        Assert.False(result.IsSuccess);
+        Assert.IsNotType<ExceptionalError>(result.Error);
+        var innerError = Assert.IsType<ExceptionalError>(result.Error.InnerError);
+        Assert.Same(exception, innerError.Exception);
+    }
+
+    [Fact]
+    public void GivenSuccessResult_WhenDeconstructed_ThenIsSuccessTrueAndErrorIsNone()
+    {
+        var (isSuccess, error) = Result.Success();
+
+        Assert.True(isSuccess);
+        Assert.Equal(Error.None, error);
+    }
+
+    [Fact]
+    public void GivenFailedResult_WhenDeconstructed_ThenIsSuccessFalseAndErrorIsCarried()
+    {
+        var failureError = new Error("Some.Code", "Some description");
+
+        var (isSuccess, error) = Result.Failure(failureError);
+
+        Assert.False(isSuccess);
+        Assert.Equal(failureError, error);
+    }
+
+    [Fact]
+    public void GivenSuccessResultValue_WhenDeconstructed_ThenValueIsCarried()
+    {
+        var (isSuccess, value, error) = Result.Success(42);
+
+        Assert.True(isSuccess);
+        Assert.Equal(42, value);
+        Assert.Equal(Error.None, error);
+    }
+
+    [Fact]
+    public void GivenFailedResultValue_WhenDeconstructed_ThenValueIsDefaultAndDoesNotThrow()
+    {
+        var failureError = new Error("Some.Code", "Some description");
+
+        var (isSuccess, value, error) = Result.Failure<int>(failureError);
+
+        Assert.False(isSuccess);
+        Assert.Equal(default, value);
+        Assert.Equal(failureError, error);
+    }
 }
