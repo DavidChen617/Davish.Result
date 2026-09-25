@@ -7,7 +7,7 @@ namespace Davish.Result;
 /// Serializes an <see cref="ErrorType"/> as its flat <see cref="ErrorType.Value"/> string, instead of as a
 /// nested object.
 /// </summary>
-public sealed class ErrorTypeJsonConverter : JsonConverter<ErrorType>
+internal sealed class ErrorTypeJsonConverter : JsonConverter<ErrorType>
 {
     /// <inheritdoc/>
     public override ErrorType Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
