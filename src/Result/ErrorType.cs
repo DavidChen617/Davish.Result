@@ -51,6 +51,9 @@ public readonly record struct ErrorType
     /// <summary>Represents a conflict, such as a duplicate or a concurrency violation.</summary>
     public static readonly ErrorType Conflict = new(nameof(Conflict));
 
+    /// <summary>Represents a rate-limiting error (the caller sent too many requests).</summary>
+    public static readonly ErrorType TooManyRequests = new(nameof(TooManyRequests));
+
     /// <summary>Represents an unexpected, unhandled error.</summary>
     public static readonly ErrorType Unexpected = new(nameof(Unexpected));
 

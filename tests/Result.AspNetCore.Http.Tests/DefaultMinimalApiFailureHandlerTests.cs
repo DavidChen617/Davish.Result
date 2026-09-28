@@ -25,6 +25,7 @@ public class DefaultMinimalApiFailureHandlerTests
         [ErrorType.Unauthorized, StatusCodes.Status401Unauthorized],
         [ErrorType.Forbidden, StatusCodes.Status403Forbidden],
         [ErrorType.Conflict, StatusCodes.Status409Conflict],
+        [ErrorType.TooManyRequests, StatusCodes.Status429TooManyRequests],
         [ErrorType.Unexpected, StatusCodes.Status500InternalServerError],
         [ErrorType.ServiceUnavailable, StatusCodes.Status503ServiceUnavailable]
     ];

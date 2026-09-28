@@ -137,6 +137,7 @@ Built-in categories:
 | `Unauthorized` | Caller is not authenticated |
 | `Forbidden` | Caller is authenticated but not allowed |
 | `Conflict` | Conflict, such as a duplicate or concurrency violation |
+| `TooManyRequests` | Caller is rate-limited (sent too many requests) |
 | `Unexpected` | Unexpected, unhandled error |
 | `ServiceUnavailable` | Downstream service is unavailable |
 
@@ -348,8 +349,9 @@ subclasses, most-specific match wins. `MapExceptionToResult<TException, TMapper>
 
 Failures map to a status code by `Error.Type`. Built-in categories map as you'd expect
 (`Validation`/`NullValue`/`BadRequest` → 400, `NotFound` → 404, `Unauthorized` → 401,
-`Forbidden` → 403, `Conflict` → 409, `ServiceUnavailable` → 503, `Unexpected` and anything
-unregistered → 500). Register your own categories once at startup, either directly:
+`Forbidden` → 403, `Conflict` → 409, `TooManyRequests` → 429, `ServiceUnavailable` → 503,
+`Unexpected` and anything unregistered → 500). Register your own categories once at startup,
+either directly:
 
 ```csharp
 Davish.Result.ResultHttpOptions.Configure(v =>

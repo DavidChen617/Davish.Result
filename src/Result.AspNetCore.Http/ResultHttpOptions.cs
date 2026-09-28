@@ -26,6 +26,7 @@ public static class ResultHttpOptions
         [Unauthorized] = Status401Unauthorized,
         [Forbidden] = Status403Forbidden,
         [Conflict] = Status409Conflict,
+        [TooManyRequests] = Status429TooManyRequests,
         [Unexpected] = Status500InternalServerError,
         [ServiceUnavailable] = Status503ServiceUnavailable
     };
