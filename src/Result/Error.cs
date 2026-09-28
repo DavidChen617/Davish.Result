@@ -8,6 +8,9 @@ public record Error
     private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> EmptyFields =
         new Dictionary<string, IReadOnlyList<string>>();
 
+    private static readonly IReadOnlyDictionary<string, object?> EmptyMetadata =
+        new Dictionary<string, object?>();
+
     /// <summary>Gets the machine-readable error code.</summary>
     public string Code { get; }
 
@@ -36,6 +39,14 @@ public record Error
     /// to derive a new <see cref="Error"/> with additional messages; this instance is never modified in place.
     /// </summary>
     public IReadOnlyDictionary<string, IReadOnlyList<string>> Fields { get; private init; } = EmptyFields;
+
+    /// <summary>
+    /// Gets free-form, application-specific data attached to this error, keyed by name. Unlike
+    /// <see cref="Fields"/>, values are not restricted to validation messages. Immutable: use
+    /// <see cref="WithMetadata(string, object?)"/>/<see cref="WithMetadata(IReadOnlyDictionary{string, object?})"/>
+    /// to derive a new <see cref="Error"/> with additional entries; this instance is never modified in place.
+    /// </summary>
+    public IReadOnlyDictionary<string, object?> Metadata { get; private init; } = EmptyMetadata;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Error"/> record.
@@ -94,7 +105,7 @@ public record Error
     /// <param name="field">The field name.</param>
     /// <param name="message">The error message to add.</param>
     /// <returns>A new <see cref="Error"/> carrying the added message.</returns>
-    public Error AddFieldError(string field, string message) => AddFieldError(field, (ICollection<string>)[message]);
+    public Error AddFieldError(string field, string message) => AddFieldError(field, [message]);
 
     /// <summary>
     /// Returns a new <see cref="Error"/> with multiple error messages added for the specified field.
@@ -116,6 +127,48 @@ public record Error
     }
 
     /// <summary>
+    /// Returns a new <see cref="Error"/> with multiple metadata entries added, overwriting any existing entry
+    /// that shares a key. This instance is left unchanged.
+    /// </summary>
+    /// <param name="metadata">The metadata entries to add.</param>
+    /// <returns>A new <see cref="Error"/> carrying the added metadata.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
+    public Error WithMetadata(IReadOnlyDictionary<string, object?> metadata)
+    {
+        if (metadata is null)
+            throw new ArgumentNullException(nameof(metadata));
+
+        Dictionary<string, object?> m = [];
+
+        foreach (var item in Metadata)
+            m[item.Key] = item.Value;
+
+        foreach (var item in metadata)
+            m[item.Key] = item.Value;
+
+        return this with { Metadata = m };
+    }
+
+    /// <summary>
+    /// Returns a new <see cref="Error"/> with a single metadata entry added, overwriting any existing entry
+    /// with the same key. This instance is left unchanged.
+    /// </summary>
+    /// <param name="key">The metadata key.</param>
+    /// <param name="value">The metadata value.</param>
+    /// <returns>A new <see cref="Error"/> carrying the added metadata entry.</returns>
+    public Error WithMetadata(string key, object? value)
+    {
+        Dictionary<string, object?> metadata = [];
+
+        foreach (var item in Metadata)
+            metadata.Add(item.Key, item.Value);
+
+        metadata[key] = value;
+
+        return this with { Metadata = metadata };
+    }
+
+    /// <summary>
     /// Returns a new <see cref="Error"/> with a single cause added. This instance is left unchanged.
     /// </summary>
     /// <param name="cause">The error that caused this error.</param>
@@ -131,7 +184,7 @@ public record Error
 
     /// <summary>
     /// Walks down the cause chain to find the root cause. Mirrors
-    /// <see cref="System.AggregateException.GetBaseException"/>: stops at a node with zero causes, or one with
+    /// <see cref="AggregateException.GetBaseException"/>: stops at a node with zero causes, or one with
     /// more than one cause (an aggregation point).
     /// </summary>
     /// <returns>The root <see cref="Error"/>.</returns>
@@ -149,6 +202,7 @@ public record Error
         && Description == other.Description
         && Type == other.Type
         && FieldsEqual(Fields, other.Fields)
+        && MetadataEqual(Metadata, other.Metadata)
         && Causes.SequenceEqual(other.Causes);
 
     /// <inheritdoc/>
@@ -170,9 +224,14 @@ public record Error
                     hash = hash * 31 + message.GetHashCode();
             }
 
+            foreach (var entry in Metadata.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+            {
+                hash = hash * 31 + entry.Key.GetHashCode();
+                hash = hash * 31 + (entry.Value?.GetHashCode() ?? 0);
+            }
+
             foreach (var cause in Causes)
                 hash = hash * 31 + cause.GetHashCode();
-
 
             return hash;
         }
@@ -188,6 +247,22 @@ public record Error
         foreach (var entry in a)
         {
             if (!b.TryGetValue(entry.Key, out var otherMessages) || !entry.Value.SequenceEqual(otherMessages))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool MetadataEqual(
+        IReadOnlyDictionary<string, object?> a,
+        IReadOnlyDictionary<string, object?> b)
+    {
+        if (a.Count != b.Count)
+            return false;
+
+        foreach (var entry in a)
+        {
+            if (!b.TryGetValue(entry.Key, out var otherValue) || !Equals(entry.Value, otherValue))
                 return false;
         }
 

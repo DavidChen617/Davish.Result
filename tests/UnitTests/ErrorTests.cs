@@ -107,6 +107,99 @@ public class ErrorTests
             new Error("V", "bad", (Dictionary<string, List<string>>)null!));
     }
 
+    [Fact]
+    public void GivenNewError_WhenCreated_ThenMetadataIsEmpty()
+    {
+        var error = new Error("Some.Code", "Some description");
+
+        Assert.Empty(error.Metadata);
+    }
+
+    [Fact]
+    public void GivenNewKey_WhenWithMetadata_ThenCreatesEntryWithTheValue()
+    {
+        var error = new Error("Order.LoadFailed", "Could not load order").WithMetadata("OrderId", 42);
+
+        Assert.Equal(42, error.Metadata["OrderId"]);
+    }
+
+    [Fact]
+    public void GivenSameKey_WhenWithMetadataCalledMultipleTimes_ThenOverwritesTheValue()
+    {
+        var error = new Error("Order.LoadFailed", "Could not load order")
+            .WithMetadata("OrderId", 42)
+            .WithMetadata("OrderId", 43);
+
+        Assert.Equal(43, error.Metadata["OrderId"]);
+    }
+
+    [Fact]
+    public void GivenDifferentKeys_WhenWithMetadata_ThenKeepsThemSeparate()
+    {
+        var error = new Error("Order.LoadFailed", "Could not load order")
+            .WithMetadata("OrderId", 42)
+            .WithMetadata("CustomerId", 7);
+
+        Assert.Equal(42, error.Metadata["OrderId"]);
+        Assert.Equal(7, error.Metadata["CustomerId"]);
+    }
+
+    [Fact]
+    public void GivenNullValue_WhenWithMetadata_ThenStoresNull()
+    {
+        var error = new Error("Order.LoadFailed", "Could not load order").WithMetadata("OrderId", null);
+
+        Assert.Null(error.Metadata["OrderId"]);
+    }
+
+    [Fact]
+    public void GivenDictionary_WhenWithMetadata_ThenMergesAllEntries()
+    {
+        var error = new Error("Order.LoadFailed", "Could not load order")
+            .WithMetadata(new Dictionary<string, object?> { ["OrderId"] = 42, ["CustomerId"] = 7 });
+
+        Assert.Equal(42, error.Metadata["OrderId"]);
+        Assert.Equal(7, error.Metadata["CustomerId"]);
+    }
+
+    [Fact]
+    public void GivenExistingKey_WhenWithMetadataDictionary_ThenOverwritesExisting()
+    {
+        var error = new Error("Order.LoadFailed", "Could not load order")
+            .WithMetadata("OrderId", 42)
+            .WithMetadata(new Dictionary<string, object?> { ["OrderId"] = 43 });
+
+        Assert.Equal(43, error.Metadata["OrderId"]);
+    }
+
+    [Fact]
+    public void GivenNullMetadataDictionary_WhenWithMetadata_ThenThrowsArgumentNullException()
+    {
+        var error = new Error("Order.LoadFailed", "Could not load order");
+
+        Assert.Throws<ArgumentNullException>(() => error.WithMetadata((IReadOnlyDictionary<string, object?>)null!));
+    }
+
+    [Fact]
+    public void GivenError_WhenWithMetadata_ThenReturnsANewInstanceAndLeavesTheOriginalUnchanged()
+    {
+        var error = new Error("Order.LoadFailed", "Could not load order");
+
+        var withMetadata = error.WithMetadata("OrderId", 42);
+
+        Assert.NotSame(error, withMetadata);
+        Assert.Empty(error.Metadata);
+        Assert.Single(withMetadata.Metadata);
+    }
+
+    [Fact]
+    public void GivenSharedSingleton_WhenWithMetadataCalledFromUnrelatedCode_ThenTheSingletonIsUnaffected()
+    {
+        _ = Error.NullValue.WithMetadata("polluted", true);
+
+        Assert.Empty(Error.NullValue.Metadata);
+    }
+
     private static class CustomErrorType
     {
         public static readonly ErrorType Conflict = new(nameof(Conflict));
@@ -169,6 +262,45 @@ public class ErrorTests
         var b = new Error("V", "bad").AddFieldError("Name", "Too short");
 
         Assert.NotEqual(a, b);
+    }
+
+    [Fact]
+    public void GivenTwoErrorsWithTheSameMetadataInDifferentInstances_WhenComparedForEquality_ThenTheyAreEqual()
+    {
+        var a = new Error("V", "bad").WithMetadata("OrderId", 42);
+        var b = new Error("V", "bad").WithMetadata("OrderId", 42);
+
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+    }
+
+    [Fact]
+    public void GivenErrorsWithDifferentMetadataValues_WhenComparedForEquality_ThenTheyAreNotEqual()
+    {
+        var a = new Error("V", "bad").WithMetadata("OrderId", 42);
+        var b = new Error("V", "bad").WithMetadata("OrderId", 43);
+
+        Assert.NotEqual(a, b);
+    }
+
+    [Fact]
+    public void GivenTwoErrorsWithSameMetadataAddedInDifferentOrder_WhenComparedForEquality_ThenTheyAreEqual()
+    {
+        var a = new Error("V", "bad").WithMetadata("OrderId", 42).WithMetadata("CustomerId", 7);
+        var b = new Error("V", "bad").WithMetadata("CustomerId", 7).WithMetadata("OrderId", 42);
+
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+    }
+
+    [Fact]
+    public void GivenTwoErrorsWithTheSameNullMetadataValue_WhenComparedForEquality_ThenTheyAreEqual()
+    {
+        var a = new Error("V", "bad").WithMetadata("OrderId", null);
+        var b = new Error("V", "bad").WithMetadata("OrderId", null);
+
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
     }
 
     [Fact]

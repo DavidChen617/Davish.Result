@@ -5,8 +5,9 @@ throwing exceptions for expected error flows, and compose your operations into a
 short-circuiting pipeline with `Then` (sync and async).
 
 - **Explicit outcomes** — `Result` and `Result<TValue>` make "this can fail" part of the type.
-- **Structured errors** — `Error` carries a code, description, category, per-field messages, and an
-  optional cause chain (`CausedBy`/`InnerError`/`GetRootCause`, mirroring `Exception.InnerException`).
+- **Structured errors** — `Error` carries a code, description, category, per-field messages,
+  free-form metadata, and an optional cause chain (`CausedBy`/`InnerError`/`GetRootCause`,
+  mirroring `Exception.InnerException`).
 - **Extensible categories** — a set of built-in `ErrorType` values, extend it with your own.
 - **Fluent composition** — chain steps with `Then` / `ThenAsync`; a failure skips the rest.
 - **Exception bridging** — `Result.Failure(exception)` wraps a caught exception as an `Error`
@@ -136,6 +137,7 @@ Built-in categories:
 | `Unauthorized` | Caller is not authenticated |
 | `Forbidden` | Caller is authenticated but not allowed |
 | `Conflict` | Conflict, such as a duplicate or concurrency violation |
+| `TooManyRequests` | Caller is rate-limited (sent too many requests) |
 | `Unexpected` | Unexpected, unhandled error |
 | `ServiceUnavailable` | Downstream service is unavailable |
 
@@ -159,6 +161,24 @@ var error = new Error("Validation", "One or more fields are invalid")
 > `AddFieldError` never modifies the `Error` it's called on — it returns a new `Error` with the
 > message added. This matters if you call it on a shared instance like `Error.NullValue`: the
 > shared singleton is unaffected, and you must use the returned value.
+
+### Metadata
+
+`Error.Metadata` holds free-form, application-specific data keyed by name — unlike `Fields`, values
+aren't restricted to validation messages. Build it fluently with `WithMetadata`:
+
+```csharp
+var error = new Error("Order.LoadFailed", "Could not load the order")
+    .WithMetadata("OrderId", orderId)
+    .WithMetadata(new Dictionary<string, object?> { ["RetryCount"] = 3, ["Region"] = "us-east-1" });
+
+// error.Metadata["OrderId"] => orderId
+```
+
+> [!NOTE]
+> `WithMetadata` never modifies the `Error` it's called on — like `AddFieldError`, it returns a new
+> `Error`. Unlike `Fields`, adding the same key twice overwrites the previous value rather than
+> accumulating.
 
 ### Cause chains
 
@@ -329,8 +349,9 @@ subclasses, most-specific match wins. `MapExceptionToResult<TException, TMapper>
 
 Failures map to a status code by `Error.Type`. Built-in categories map as you'd expect
 (`Validation`/`NullValue`/`BadRequest` → 400, `NotFound` → 404, `Unauthorized` → 401,
-`Forbidden` → 403, `Conflict` → 409, `ServiceUnavailable` → 503, `Unexpected` and anything
-unregistered → 500). Register your own categories once at startup, either directly:
+`Forbidden` → 403, `Conflict` → 409, `TooManyRequests` → 429, `ServiceUnavailable` → 503,
+`Unexpected` and anything unregistered → 500). Register your own categories once at startup,
+either directly:
 
 ```csharp
 Davish.Result.ResultHttpOptions.Configure(v =>
