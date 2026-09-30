@@ -9,8 +9,9 @@ public static class ErrorTypeHttpExtension
     extension(ErrorType errorType)
     {
         /// <summary>
-        /// Resolves the HTTP status code configured for this error type via <see cref="ResultHttpOptions.Configure"/>,
-        /// or <see cref="Microsoft.AspNetCore.Http.StatusCodes.Status500InternalServerError"/> if none was registered.
+        /// Resolves the HTTP status code configured for this error type via
+        /// <see cref="ResultAspNetCoreOptions.ConfigureStatusCodes"/>, or
+        /// <see cref="Microsoft.AspNetCore.Http.StatusCodes.Status500InternalServerError"/> if none was registered.
         /// </summary>
         public int ToStatusCode() => ResultHttpOptions.ResolveStatusCode(errorType);
     }

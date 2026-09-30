@@ -350,33 +350,38 @@ subclasses, most-specific match wins. `MapExceptionToResult<TException, TMapper>
 Failures map to a status code by `Error.Type`. Built-in categories map as you'd expect
 (`Validation`/`NullValue`/`BadRequest` → 400, `NotFound` → 404, `Unauthorized` → 401,
 `Forbidden` → 403, `Conflict` → 409, `TooManyRequests` → 429, `ServiceUnavailable` → 503,
-`Unexpected` and anything unregistered → 500). Register your own categories once at startup,
-either directly:
+`Unexpected` and anything unregistered → 500). Register your own categories from the same
+`AddResultAspNetCore` call as everything else above, via `o.ConfigureStatusCodes(...)`:
 
 ```csharp
-Davish.Result.ResultHttpOptions.Configure(v =>
+builder.Services.AddResultAspNetCore(o =>
 {
-    // v.UseDefault = false;   // opt out of the built-in mappings above
-
-    v.CustomMap = new Dictionary<ErrorType, int>
+    o.ConfigureStatusCodes(v =>
     {
-        [OrderErrorType.OutOfStock] = StatusCodes.Status409Conflict,
-        [OrderErrorType.PaymentDeclined] = StatusCodes.Status402PaymentRequired,
-    };
+        // v.UseDefault = false;   // opt out of the built-in mappings above
+
+        v.CustomMap = new Dictionary<ErrorType, int>
+        {
+            [OrderErrorType.OutOfStock] = StatusCodes.Status409Conflict,
+            [OrderErrorType.PaymentDeclined] = StatusCodes.Status402PaymentRequired,
+        };
+    });
 });
 ```
 
-or from the same `AddResultAspNetCore` call as everything else above, via `o.ConfigureStatusCodes(...)`
-(a thin wrapper over the same `ResultHttpOptions.Configure`).
-
 This is process-wide static configuration, applied immediately rather than resolved from a DI
-container — the same idea as configuring `JsonSerializerOptions` or Dapper's `SqlMapper.Settings`.
-Since `ErrorType` uses value equality, `OrderErrorType.OutOfStock` and any other `ErrorType` you
-build with the same name map to the same entry.
+container — the same idea as Dapper's `SqlMapper.Settings`: a plain, freely reconfigurable global,
+not a "configure once and freeze" builder. Since `ErrorType` uses value equality, `OrderErrorType.OutOfStock`
+and any other `ErrorType` you build with the same name map to the same entry.
 
-> [!IMPORTANT]
-> Configure this once at startup, before the app serves any requests. The mapping locks itself
-> the first time a status code is resolved — reconfiguring afterward throws `ResultHttpOptionsLockedException`.
+> [!NOTE]
+> Calling `ConfigureStatusCodes` again — even after status codes have already been resolved for
+> real requests — replaces the mapping wholesale; there's no lock to fight. This matters for tests
+> that spin up multiple hosts in one process (e.g. a fresh `WebApplicationFactory` per test): each
+> host's own `AddResultAspNetCore` call just reapplies its mapping, no special handling needed.
+> The flip side is the usual one for any process-wide static: if two hosts in the same process want
+> *different* mappings at the same time, whichever configures last wins for both — keep the mapping
+> identical across hosts that share a process, the way you already would for `SqlMapper.Settings`.
 
 ### Customizing ProblemDetails
 
