@@ -292,10 +292,31 @@ app.MapDelete("/bookings/{id}", (int id, BookingService service) =>
 | --- | --- |
 | `ToOk()` | `200 OK` |
 | `ToNoContent()` | `204 No Content` |
-| `ToCreated(routeName, routeValues)` | `201 Created` |
-| `ToAccepted(uri)` | `202 Accepted` |
+| `ToCreated(routeName, routeValues)` | `201 Created` at a named route |
+| `ToCreated()` | `201 Created`, no `Location` (non-generic only) |
+| `ToCreatedAtLocation(string \| Uri)` | `201 Created` with an explicit `Location` |
+| `ToCreatedAtLocation(value => string \| Uri)` | same, `Location` built from the value (generic only) |
+| `ToAccepted(string \| Uri)` | `202 Accepted` with an optional `Location` |
+| `ToAcceptedAtRoute(routeName, routeValues)` | `202 Accepted` at a named route |
+| `ToText(...)` / `ToContent(...)` | `200 OK` (or the given `statusCode`) with a text body |
+| `ToJson(options \| context \| typeInfo)` | `200 OK` (or the given `statusCode`) serializing the value with an explicit serializer (generic only) |
+| `ToServerSentEvents(...)` | `200 OK` `text/event-stream`, on `Result<IAsyncEnumerable<string \| T \| SseItem<T>>>` |
+| `ToBytes(...)` / `ToFile(...)` / `ToPhysicalFile(...)` / `ToVirtualFile(...)` / `ToStream(...)` | `200 OK` file or stream response; generic overloads take a `Func<T, ...>` for the content or path |
+| `ToRedirect(...)` / `ToLocalRedirect(...)` / `ToRedirectToRoute(...)` | `301`/`302`/`307`/`308` depending on `permanent` and `preserveMethod` |
+| `ToSignIn(...)` / `ToSignOut(...)` | sign in / out via the authentication handler (`StatusCode` is `null`: the handler decides) |
+| `ToChallenge(...)` / `ToForbid(...)` | challenge / forbid via the authentication handler, e.g. to start an external (OAuth/OIDC) login (`StatusCode` is `null`: the handler decides) |
+| `ToStatus(statusCode)` | a bare response with the given status code |
 
-Each has a non-generic (`Result`) and generic (`Result<T>`, carrying the value) overload. Failure
+Most have a non-generic (`Result`) and generic (`Result<T>`, carrying the value) overload; the ones marked
+above are only meaningful on one side. For `ToText`/`ToContent` the generic overloads take a `Func<T, string>`
+that builds the body from the value. `ToCreatedAtLocation` is named differently from `ToCreated(routeName, ...)`
+because a `string` overload of the latter name would be indistinguishable from it.
+Where the real status is only decided at execution time, the shape's `StatusCode` property is `null` (unknown) on
+success rather than a guess: `ToSignIn`/`ToSignOut`/`ToChallenge`/`ToForbid` (the authentication handler decides, e.g. `302`
+for a cookie handler), and the file/stream shapes when range processing or an `ETag`/`Last-Modified` is requested
+(`206`/`304`/`412` are possible). Everywhere else it is exact. The response itself always matches the built-in
+`TypedResults`; only the property is affected. `ToChallenge`/`ToForbid` hand the response to the authentication handler (a redirect to a login page, `WWW-Authenticate`, ...),
+unlike a failed result mapped from `ErrorType.Unauthorized`/`Forbidden`, which always produces `ProblemDetails`. Failure
 is always handled the same way, by the registered `IMinimalApiFailureHandler` — see below.
 
 > [!NOTE]
@@ -350,33 +371,38 @@ subclasses, most-specific match wins. `MapExceptionToResult<TException, TMapper>
 Failures map to a status code by `Error.Type`. Built-in categories map as you'd expect
 (`Validation`/`NullValue`/`BadRequest` → 400, `NotFound` → 404, `Unauthorized` → 401,
 `Forbidden` → 403, `Conflict` → 409, `TooManyRequests` → 429, `ServiceUnavailable` → 503,
-`Unexpected` and anything unregistered → 500). Register your own categories once at startup,
-either directly:
+`Unexpected` and anything unregistered → 500). Register your own categories from the same
+`AddResultAspNetCore` call as everything else above, via `o.ConfigureStatusCodes(...)`:
 
 ```csharp
-Davish.Result.ResultHttpOptions.Configure(v =>
+builder.Services.AddResultAspNetCore(o =>
 {
-    // v.UseDefault = false;   // opt out of the built-in mappings above
-
-    v.CustomMap = new Dictionary<ErrorType, int>
+    o.ConfigureStatusCodes(v =>
     {
-        [OrderErrorType.OutOfStock] = StatusCodes.Status409Conflict,
-        [OrderErrorType.PaymentDeclined] = StatusCodes.Status402PaymentRequired,
-    };
+        // v.UseDefault = false;   // opt out of the built-in mappings above
+
+        v.CustomMap = new Dictionary<ErrorType, int>
+        {
+            [OrderErrorType.OutOfStock] = StatusCodes.Status409Conflict,
+            [OrderErrorType.PaymentDeclined] = StatusCodes.Status402PaymentRequired,
+        };
+    });
 });
 ```
 
-or from the same `AddResultAspNetCore` call as everything else above, via `o.ConfigureStatusCodes(...)`
-(a thin wrapper over the same `ResultHttpOptions.Configure`).
-
 This is process-wide static configuration, applied immediately rather than resolved from a DI
-container — the same idea as configuring `JsonSerializerOptions` or Dapper's `SqlMapper.Settings`.
-Since `ErrorType` uses value equality, `OrderErrorType.OutOfStock` and any other `ErrorType` you
-build with the same name map to the same entry.
+container — the same idea as Dapper's `SqlMapper.Settings`: a plain, freely reconfigurable global,
+not a "configure once and freeze" builder. Since `ErrorType` uses value equality, `OrderErrorType.OutOfStock`
+and any other `ErrorType` you build with the same name map to the same entry.
 
-> [!IMPORTANT]
-> Configure this once at startup, before the app serves any requests. The mapping locks itself
-> the first time a status code is resolved — reconfiguring afterward throws `ResultHttpOptionsLockedException`.
+> [!NOTE]
+> Calling `ConfigureStatusCodes` again — even after status codes have already been resolved for
+> real requests — replaces the mapping wholesale; there's no lock to fight. This matters for tests
+> that spin up multiple hosts in one process (e.g. a fresh `WebApplicationFactory` per test): each
+> host's own `AddResultAspNetCore` call just reapplies its mapping, no special handling needed.
+> The flip side is the usual one for any process-wide static: if two hosts in the same process want
+> *different* mappings at the same time, whichever configures last wins for both — keep the mapping
+> identical across hosts that share a process, the way you already would for `SqlMapper.Settings`.
 
 ### Customizing ProblemDetails
 

@@ -19,11 +19,21 @@ public abstract class MinimalApiResult : IResult, IStatusCodeHttpResult
     /// <summary>The HTTP status code written on success.</summary>
     protected abstract int SuccessStatusCode { get; }
 
+    /// <summary>
+    /// Whether <see cref="SuccessStatusCode"/> is the status code that will actually be written. Override to return
+    /// <see langword="false"/> when the real status is only decided at execution time (for example by an
+    /// authentication handler, or by range/conditional request processing); <see cref="StatusCode"/> then reports
+    /// <see langword="null"/> on success instead of a value that may be wrong. Defaults to <see langword="true"/>.
+    /// </summary>
+    protected virtual bool SuccessStatusCodeIsKnown => true;
+
     /// <summary>Builds the <see cref="IResult"/> to execute when the wrapped <see cref="Result"/> is successful.</summary>
     protected abstract IResult CreateSuccessResult();
 
     /// <inheritdoc/>
-    public int? StatusCode => _result.IsSuccess ? SuccessStatusCode : _result.Error.Type.ToStatusCode();
+    public int? StatusCode => _result.IsSuccess
+        ? (SuccessStatusCodeIsKnown ? SuccessStatusCode : null)
+        : _result.Error.Type.ToStatusCode();
 
     /// <inheritdoc/>
     public async Task ExecuteAsync(HttpContext httpContext)

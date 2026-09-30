@@ -132,15 +132,23 @@ public class DefaultMinimalApiFailureHandlerTests
     }
 
     [Fact]
-    public async Task GivenConfigureCalledAfterResolveStatusCodeHasRun_WhenConfigure_ThenThrows()
+    public async Task GivenConfigureCalledAfterResolveStatusCodeHasRun_WhenConfigure_ThenNewMappingTakesEffect()
     {
         ResultHttpOptions.ResetForTesting();
         try
         {
+            // Resolve at least one status code first, simulating a host that's already served a request —
+            // reconfiguring afterward must not throw, unlike the old lock-after-first-use behavior.
             await Handler.HandleAsync(Result.Failure(NotFoundError), CancellationToken.None);
 
-            Assert.Throws<ResultHttpOptionsLockedException>(() =>
-                ResultHttpOptions.Configure(v => { }));
+            var rateLimited = new ErrorType("RateLimited.ReconfigureAfterResolve");
+            ResultHttpOptions.Configure(v =>
+                v.CustomMap = new Dictionary<ErrorType, int> { [rateLimited] = StatusCodes.Status429TooManyRequests });
+
+            var result = Result.Failure(new Error("Booking.RateLimited", "Too many requests", rateLimited));
+            var problem = Assert.IsType<ProblemHttpResult>(await Handler.HandleAsync(result, CancellationToken.None));
+
+            Assert.Equal(StatusCodes.Status429TooManyRequests, problem.ProblemDetails.Status);
         }
         finally
         {
