@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'result-v*'
+      - 'aspnetcore-http-v*'
+
+permissions:
+  contents: write   # create GitHub Release
+  id-token: write   # NuGet trusted publishing (OIDC)
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            10.0.x
+            11.0.x
+
+      - name: Resolve package from tag
+        id: pkg
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          case "$tag" in
+            result-v*)          prefix="result-v";          project="src/Result/Result.csproj";                                   package="Davish.Result" ;;
+            aspnetcore-http-v*) prefix="aspnetcore-http-v"; project="src/Result.AspNetCore.Http/Result.AspNetCore.Http.csproj"; package="Davish.Result.AspNetCore.Http" ;;
+            *) echo "::error::Unknown tag prefix: $tag"; exit 1 ;;
+          esac
+
+          version="${tag#"$prefix"}"
+          csproj_version="$(dotnet msbuild "$project" -getProperty:Version)"
+          if [ "$version" != "$csproj_version" ]; then
+            echo "::error::Tag version ($version) does not match <Version> in $project ($csproj_version)"
+            exit 1
+          fi
+
+          # Previous tag of the same package, so release notes don't mix packages.
+          previous="$(git tag --list "${prefix}*" --sort=-v:refname | grep -vx "$tag" | head -n 1)"
+
+          {
+            echo "project=$project"
+            echo "package=$package"
+            echo "version=$version"
+            echo "previous=$previous"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: dotnet build -c Release
+
+      - name: Test
+        run: dotnet test -c Release --no-build
+
+      - name: Pack
+        run: dotnet pack "${{ steps.pkg.outputs.project }}" -c Release --no-build -o out
+
+      - name: NuGet login (OIDC)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push to NuGet
+        run: >
+          dotnet nuget push "out/*.nupkg"
+          --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIOUS: ${{ steps.pkg.outputs.previous }}
+        run: |
+          args=(--title "${{ steps.pkg.outputs.package }} ${{ steps.pkg.outputs.version }}" --generate-notes)
+          if [ -n "$PREVIOUS" ]; then
+            args+=(--notes-start-tag "$PREVIOUS")
+          fi
+          gh release create "$GITHUB_REF_NAME" out/* "${args[@]}"

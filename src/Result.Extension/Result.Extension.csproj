@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <Version>2.1.0</Version>
+    <!-- No longer maintained: excluded from release packing. -->
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
