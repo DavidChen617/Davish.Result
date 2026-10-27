@@ -43,8 +43,8 @@ public record Error
 ```
 
 - `Type` defaults to `ErrorType.Validation` when not specified in the constructor.
-- `AddFieldError`/`CausedBy` never mutate the receiver — each returns a new `Error`. Calling
-  either on a shared singleton (`Error.None`, `Error.NullValue`) does not affect the singleton.
+- `AddFieldError`/`WithMetadata`/`CausedBy` never mutate the receiver — each returns a new `Error`. Calling
+  any of them on a shared singleton (`Error.None`, `Error.NullValue`) does not affect the singleton.
 - `AddFieldError(field, messages)` creates the field entry even if `messages` is empty, and
   appends to (rather than replaces) an existing entry for the same field.
 - `WithMetadata` attaches free-form key/value data (e.g. a retry-after hint or an entity id) and
@@ -52,7 +52,7 @@ public record Error
   overload merges into the existing metadata.
 - `GetRootCause()` walks down the chain while each node has exactly one cause; it stops (and
   returns that node) once it reaches zero causes or more than one (an aggregation point).
-- Equality is structural: `Code`, `Description`, `Type`, `Fields` (by content), `Metadata` (by
+- Equality is structural: `Code`, `Description`, `Type`, `Fields` (by content, message lists in order), `Metadata` (by
   content, values compared with `Equals`), and `Causes` (in order) must all match.
 
 ```csharp

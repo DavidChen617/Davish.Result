@@ -3,8 +3,8 @@ title: 自訂失敗處理邏輯
 weight: 70
 ---
 
-預設的 `IMinimalApiFailureHandler` 會用 [狀態碼對應](configuring-status-codes.md) 產生一個
-`ProblemDetails`（如果 `Error.Fields` 有內容，則是 validation problem）。
+預設的 `IMinimalApiFailureHandler` 會依[狀態碼對應](configuring-status-codes.md)產生
+`ProblemDetails`；如果 `Error.Fields` 有內容，則產生 validation problem。
 
 ## 替換預設的處理器
 
@@ -21,16 +21,19 @@ builder.Services.AddResultAspNetCore(o =>
 });
 ```
 
-`HandleAsync` 只會在 `Result` 失敗時被呼叫（`Result.IsSuccess` 為 `false`）。它會替換掉
-`IMinimalApiFailureHandler` 的單例註冊。之後 `ToOk()`/`ToCreated()` 等方法的失敗，
-以及透過 `MapExceptionToResult` 轉進來的例外，都由同一個處理器處理。
+只有在 `Result` 失敗（`Result.IsSuccess` 為 `false`）時，才會呼叫 `HandleAsync`。
+`MinimalApiFailureHandler<THandler>()` 會替換掉 `IMinimalApiFailureHandler` 的 singleton 註冊，
+之後 `ToOk()`/`ToCreated()` 等方法的失敗，以及透過 `MapExceptionToResult` 轉進來的例外，
+都由這個處理器處理。
 
 ## 只想調整 ProblemDetails，不想整個換掉處理器
 
-如果你想保留預設的 `ProblemDetails`/`ValidationProblemDetails` 形狀，只是想加欄位或做些微調，可以設定 `ProblemDetailsOptions`，不用另外寫一個自訂處理器。`o.ConfigureProblemDetails(...)`
-（跟其他設定同一個 `AddResultAspNetCore` 呼叫）設定的是 ASP.NET Core 的
-`[ApiController]`/`ControllerBase.Problem()` 所使用的同一份 `ProblemDetailsOptions`，
-跟 Minimal API 無關：
+如果只想在預設的 `ProblemDetails`/`ValidationProblemDetails` 上加欄位或微調，設定
+`ProblemDetailsOptions` 就好，不必自己寫處理器。
+
+在 `AddResultAspNetCore` 裡呼叫 `o.ConfigureProblemDetails(...)`，設定的就是 ASP.NET Core
+`[ApiController]`/`ControllerBase.Problem()` 使用的那份 `ProblemDetailsOptions`，
+不只作用於 Minimal API：
 
 ```csharp
 builder.Services.AddResultAspNetCore(o =>
@@ -42,7 +45,7 @@ builder.Services.AddResultAspNetCore(o =>
 
 ## 相關文件
 
-- [ASP.NET Core 整合模型](../concepts/aspnetcore-integration-model.md)：失敗解析怎麼融入
-  `MinimalApiResult.ExecuteAsync`。
+- [ASP.NET Core 整合模型](../concepts/aspnetcore-integration-model.md)：`MinimalApiResult.ExecuteAsync`
+  在什麼時候解析失敗處理器。
 - [Minimal API 結果型別](../reference/minimal-api-results.md)：`IFailureHandler<TResult>` /
   `IMinimalApiFailureHandler`。

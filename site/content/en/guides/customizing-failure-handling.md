@@ -21,8 +21,9 @@ builder.Services.AddResultAspNetCore(o =>
 });
 ```
 
-`HandleAsync` is only ever called for a failed `Result` (`Result.IsSuccess` is `false`). It
-replaces the singleton registration for `IMinimalApiFailureHandler` — the same handler then
+`HandleAsync` is only ever called for a failed `Result` (`Result.IsSuccess` is `false`).
+`MinimalApiFailureHandler<THandler>()` replaces the singleton registration for
+`IMinimalApiFailureHandler` — the same handler then
 backs both `ToOk()`/`ToCreated()`/etc. failures and exceptions routed through
 `MapExceptionToResult`, since both paths converge on the same registered handler.
 

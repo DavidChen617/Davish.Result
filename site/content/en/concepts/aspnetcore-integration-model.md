@@ -40,7 +40,7 @@ Because failure resolution happens through `httpContext.RequestServices` at exec
 (not when `ToOk()` is called), swapping the registered `IMinimalApiFailureHandler` changes every
 endpoint's failure response without touching endpoint code.
 
-## The public/internal split is deliberate
+## Which types are open for extension is deliberate
 
 `MinimalApiResult`/`MinimalApiResult<TValue>` are `public abstract` specifically so you can add
 your own success shape (e.g. a `206 Partial Content` result) by inheriting from them and

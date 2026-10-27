@@ -10,15 +10,15 @@ Result ok = Result.Success();
 Result bad = Result.Failure(new Error("User.Locked", "The account is locked"));
 ```
 
-## `Result<TValue>`（成功時帶著一個值）
+## `Result<TValue>`（成功時帶有值）
 
 ```csharp
 Result<int> value = Result.Success(42);
 Result<int> failed = Result.Failure<int>(new Error("Parse.Failed", "Not a number"));
 ```
 
-`Result.Failure(Error.None)` 以及 `Result.Success<TValue>` 傳入 `null` 值都會拋出
-`InvalidResultStateException`，因為成功/失敗的狀態必須內部一致。參考
+`Result.Failure(Error.None)`，或是傳 `null` 給 `Result.Success<TValue>`，都會拋出
+`InvalidResultStateException`，因為成功與失敗的狀態必須一致。詳見
 [Result 與 Error 模型](../concepts/result-and-error-model.md)。
 
 ## 讀取結果
@@ -31,7 +31,7 @@ else
 ```
 
 `ResultValueUnavailableException` 跟 `InvalidResultStateException` 都衍生自 `ResultException`，
-所以 `catch (ResultException)` 兩種都能處理。
+所以 `catch (ResultException)` 兩種都接得住。
 
 `Result` 跟 `Result<TValue>` 都支援解構：
 
@@ -42,7 +42,7 @@ var (isSuccess, value, error) = typedResult;       // Result<TValue> —— 失�
 
 ## 從值或 Error 隱含轉換
 
-一個值或一個 `Error` 都可以隱含轉換成 result，所以工廠方法可以直接 `return`：
+值和 `Error` 都能隱含轉換成 `Result`，所以回傳 `Result` 的方法可以直接 `return` 它們：
 
 ```csharp
 Result<string> GetName(int id)
@@ -54,8 +54,8 @@ Result<string> GetName(int id)
 }
 ```
 
-`null` 值會轉成帶著 `Error.NullValue` 的失敗結果，而不是帶著 `null` 的成功結果，因為
-`Result<TValue>` 要求 `TValue : notnull`。
+`Result<TValue>` 要求 `TValue : notnull`，所以 `null` 會轉成帶有 `Error.NullValue` 的失敗結果，
+不會變成值為 `null` 的成功結果。
 
 ## 相關文件
 

@@ -15,13 +15,13 @@ public static class ResultHttpOptions
 }
 ```
 
-`ResultHttpOptions` 是公開的靜態類別，但它的成員都是 `internal`，請透過
-`ResultAspNetCoreOptions.ConfigureStatusCodes(...)` 來設定對應表（參考
+`ResultHttpOptions` 是公開的靜態類別，但成員都是 `internal`。設定對應表請用
+`ResultAspNetCoreOptions.ConfigureStatusCodes(...)`（參考
 [ASP.NET Core 設定](aspnetcore-setup.md)）。
 
-- `ConfigureStatusCodes` 會整份替換這個對應表，並且立刻套用。沒有任何鎖，再次呼叫（即使在
-  狀態碼已被解析過之後）也只是直接替換對應表。
-- 內建預設值（當 `ResultHttpOptionsBuilder.UseDefault` 為 `true`，也就是預設值時會被種入）：
+- `ConfigureStatusCodes` 會整份替換對應表，並立刻套用。過程不加鎖；即使已經解析過狀態碼，
+  再次呼叫也只是直接換掉對應表。
+- 內建預設值（`ResultHttpOptionsBuilder.UseDefault` 為 `true` 時會先放進對應表，`true` 也是預設值）：
 
   | `ErrorType` | 狀態碼 |
   |---|---|
@@ -36,10 +36,9 @@ public static class ResultHttpOptions
   | `Unexpected` | 500 |
   | `ServiceUnavailable` | 503 |
 
-- 狀態碼是透過 `ErrorType.ToStatusCode()`（見下方）在內部解析的；沒有登記的 `ErrorType`
-  會解析成 `500`。
-- 這是 process-wide 的靜態狀態（每次設定時會原子性地換掉一個
-  `ConcurrentDictionary<ErrorType, int>`），不是每個請求各自從 DI 解析。參考
+- 狀態碼由 `ErrorType.ToStatusCode()`（見下方）解析；沒有登記的 `ErrorType` 會得到 `500`。
+- 這是 process-wide 的靜態狀態，不是每個請求各自從 DI 解析。每次設定時，會以原子操作換掉整個
+  `ConcurrentDictionary<ErrorType, int>`。參考
   [錯誤類型對應狀態碼](../concepts/status-code-mapping.md)。
 
 ## `ResultHttpOptionsBuilder`
@@ -52,8 +51,8 @@ public sealed class ResultHttpOptionsBuilder
 }
 ```
 
-`CustomMap` 會在內建預設值套用之後（如果 `UseDefault` 為 `true`）才套用，並覆蓋掉共用同一個
-`ErrorType` 的項目。
+`CustomMap` 在內建預設值之後套用（如果 `UseDefault` 為 `true`），遇到相同的 `ErrorType` 時，
+會覆蓋預設值。
 
 ```csharp
 builder.Services.AddResultAspNetCore(o =>
@@ -77,9 +76,8 @@ public static class ErrorTypeHttpExtension
 }
 ```
 
-透過 `ConfigureStatusCodes` 設定的對應表，解析出 `errorType` 對應的 HTTP 狀態碼
-（沒有登記的話回傳 500）。這個方法是公開的，讓消費端在寫自己的 `ToXxx()` Minimal API
-結果擴充方法時，可以重用已經設定好的對應表。
+依 `ConfigureStatusCodes` 設定的對應表，查出 `errorType` 對應的 HTTP 狀態碼，沒有登記時回傳 500。
+這個方法公開出來，是為了讓你自己寫 `ToXxx()` Minimal API 擴充方法時，也能沿用設定好的對應表。
 
 ## 相關文件
 

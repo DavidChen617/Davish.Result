@@ -32,8 +32,8 @@ public class Result
 ```
 
 - `IsSuccess` is computed from `Error == Error.None`; there is no separately stored flag.
-- The constructor is `protected` — build instances through the static factories, or by
-  deriving your own result type on top of `Result`.
+- The constructor is `protected` — build instances through the static factories (or the implicit
+  conversions that call them), or by deriving your own result type on top of `Result`.
 - `Failure(error)` throws `InvalidResultStateException` if `error == Error.None`.
 - `Failure(exception)` builds the error via `ExceptionalError.From(exception)` — see
   [Error, ErrorType, and ExceptionalError](error.md) for the safety note about

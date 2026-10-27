@@ -19,11 +19,11 @@ weight: 5
 - `ResultHttpOptions.Configure` 改為 `internal`。請在 `AddResultAspNetCore` 內使用
   `ConfigureStatusCodes`。
 
-### 4.0.0 之後（版本號尚未調整）
+### 尚未發布（4.0.0 之後，版本號還沒更新）
 
-- 補上其餘的 `TypedResults` 成功回應：`ToCreatedAtLocation`、`ToAcceptedAtRoute`、
-  `ToText`/`ToContent`、`ToJson`、`ToServerSentEvents`、檔案與 stream、redirect、
-  authentication 結果，以及 `ToStatus`。
+- 補齊其餘的 `TypedResults` 成功回應：`ToCreatedAtLocation`、`ToAcceptedAtRoute`、
+  `ToText`/`ToContent`、`ToJson`、`ToServerSentEvents`、檔案與串流、重新導向、
+  身分驗證，以及 `ToStatus`。
 
 ### 3.1.0
 

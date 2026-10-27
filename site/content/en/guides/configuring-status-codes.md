@@ -31,7 +31,7 @@ builder.Services.AddResultAspNetCore(o =>
 
 `ResultHttpOptions.Configure` is `internal`, so `ConfigureStatusCodes` is the only entry point.
 This is process-wide static configuration, applied immediately rather than resolved from a DI
-container — the same idea as configuring `JsonSerializerOptions` or Dapper's
+container — the same idea as Dapper's
 `SqlMapper.Settings`. Since `ErrorType` uses value equality, `OrderErrorType.OutOfStock` and any
 other `ErrorType` you build with the same name map to the same entry.
 

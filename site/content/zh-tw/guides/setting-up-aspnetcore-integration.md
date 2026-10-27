@@ -3,7 +3,7 @@ title: 設定 ASP.NET Core 整合
 weight: 50
 ---
 
-需要 `Davish.Result.AspNetCore.Http`（目標框架僅 `net10.0`）：
+先安裝 `Davish.Result.AspNetCore.Http`（目標框架只有 `net10.0`）：
 
 ```bash
 dotnet add package Davish.Result.AspNetCore.Http
@@ -22,12 +22,12 @@ var app = builder.Build();
 app.UseExceptionHandler();   // 如果有用 MapExceptionToResult，這一行是必要的（見下方）
 ```
 
-`AddResultAspNetCore` 會註冊例外對應到 `Result` 的 dispatcher，並且在內部呼叫
-`services.AddProblemDetails()`（這是 ASP.NET Core 沒帶參數的 `app.UseExceptionHandler()`
-在啟動時需要的 fallback）。`o.AddMinimalApiResult()` 則另外註冊了預設的
-`IMinimalApiFailureHandler`，以及讓 `MapExceptionToResult` 真正生效的例外處理器。
+`AddResultAspNetCore` 會註冊把例外對應到 `Result` 的 dispatcher，並在內部呼叫
+`services.AddProblemDetails()`。不帶參數的 `app.UseExceptionHandler()` 在啟動時需要這個 fallback。
+`o.AddMinimalApiResult()` 則另外註冊預設的 `IMinimalApiFailureHandler`，以及讓
+`MapExceptionToResult` 真正生效的例外處理器。
 
-`app.UseExceptionHandler()` 是 `MapExceptionToResult` 生效的必要條件。`AddResultAspNetCore`
+少了 `app.UseExceptionHandler()`，`MapExceptionToResult` 就不會生效。`AddResultAspNetCore`
 只註冊 DI 服務，不會自動把它接進 middleware 管線。
 
 ## 每個部分各自負責什麼
@@ -36,8 +36,8 @@ app.UseExceptionHandler();   // 如果有用 MapExceptionToResult，這一行是
 |---|---|
 | `AddResultAspNetCore(o => ...)` | 例外對應 dispatcher、`services.AddProblemDetails()`。 |
 | `o.AddMinimalApiResult(...)` | 預設的 `IMinimalApiFailureHandler`，以及 `MapExceptionToResult` 背後的例外處理器。 |
-| `o.MapExceptionToResult<TException>(...)` | 一條例外對應到 `Result` 的轉換規則（見 [把例外對應到 Result](mapping-exceptions-to-results.md)）。 |
-| `o.ConfigureStatusCodes(...)` | `ErrorType` 對應到 HTTP 狀態碼的表（見 [設定狀態碼](configuring-status-codes.md)）。 |
+| `o.MapExceptionToResult<TException>(...)` | 一條把例外轉成 `Result` 的規則（見[把例外對應到 Result](mapping-exceptions-to-results.md)）。 |
+| `o.ConfigureStatusCodes(...)` | `ErrorType` 對應到 HTTP 狀態碼的表（見[設定狀態碼](configuring-status-codes.md)）。 |
 | `o.ConfigureProblemDetails(...)` | `AddProblemDetails()` 使用的 `ProblemDetailsOptions`。 |
 
 ## 延伸閱讀

@@ -27,7 +27,7 @@ result's status code through `ErrorType.ToStatusCode()`, which forwards to this 
 
 `ConfigureStatusCodes(...)` replaces the mapping wholesale, immediately, as a static operation —
 it is not resolved per-request from a DI container. The doc comments compare this model
-explicitly to configuring `JsonSerializerOptions` or Dapper's `SqlMapper.Settings`: a single,
+explicitly to Dapper's `SqlMapper.Settings`: a single,
 process-wide table.
 
 Because `ErrorType` is a `record struct` compared by its `Value` name, an `ErrorType` you build

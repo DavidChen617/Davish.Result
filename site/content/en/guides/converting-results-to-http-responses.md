@@ -53,8 +53,8 @@ and the file/stream shapes when range processing or an `ETag`/`Last-Modified` is
 
 `ToChallenge`/`ToForbid` hand the response to the authentication handler (a redirect to a login
 page, `WWW-Authenticate`, ...), unlike a failed result mapped from `ErrorType.Unauthorized`/
-`Forbidden`, which always produces `ProblemDetails`. Failure is always handled the same way, by
-the registered `IMinimalApiFailureHandler`.
+`Forbidden`, which is always handled by the registered `IMinimalApiFailureHandler` (the default
+handler produces `ProblemDetails`).
 
 ## Success is written immediately; failure is deferred to the registered handler
 

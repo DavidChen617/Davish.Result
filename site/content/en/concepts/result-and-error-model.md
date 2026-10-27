@@ -15,8 +15,9 @@ invariant:
 - `Result<TValue>`'s constructor throws `InvalidResultStateException` if `error == Error.None`
   and `value` is `null` (a success must carry a value).
 
-There is no public constructor that lets you build an inconsistent `Result` directly — the
-static factory methods are the only entry points.
+`Result` has no public constructor (only a `protected` one for derived types), so outside code
+creates results through the static factory methods, or through the implicit conversions that
+call them.
 
 ## `Result<TValue>` requires `TValue : notnull`
 
@@ -32,13 +33,13 @@ Result<string> result = value;   // failed result, result.Error == Error.NullVal
 
 ## Errors are immutable and derive new instances
 
-`Error` is a `record` with an `AddFieldError`/`CausedBy` API that never mutates the receiver —
+`Error` is a `record` with an `AddFieldError`/`WithMetadata`/`CausedBy` API that never mutates the receiver —
 each call returns a new `Error` with the addition applied. This matters for the two canonical
 singletons, `Error.None` and `Error.NullValue`: calling `Error.NullValue.AddFieldError(...)`
 does not pollute the shared singleton; you must use the returned value.
 
 `Error` equality is structural (record equality), comparing `Code`, `Description`, `Type`,
-`Fields`, and `Causes` (order-sensitive for `Causes` and `Fields`' message lists). Two
+`Fields`, `Metadata`, and `Causes` (order-sensitive for `Causes` and `Fields`' message lists). Two
 independently constructed `Error` instances with the same values are equal.
 
 ## `ErrorType` is a value, not an enum
